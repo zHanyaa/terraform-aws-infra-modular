@@ -8,3 +8,5 @@ skip-check:
   - CKV_AWS_18   # Access logging do S3: exigiria um segundo bucket só para logs.
   - CKV2_AWS_62  # Notificações de eventos do S3: sem consumidor neste projeto.
   - CKV_AWS_135  # EBS optimized: t3 já é EBS-optimized por padrão.
+  - CKV2_AWS_5   # Falso positivo: o SG é anexado à EC2 em outro módulo (module.ec2), o checkov não segue a referência.
+  - CKV_AWS_394  # Só a primeira AZ disponível é usada; a lista crescer não muda nada.
