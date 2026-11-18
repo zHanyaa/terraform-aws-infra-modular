@@ -1,3 +1,4 @@
 output "web_sg_id" {
-  value = aws_security_group.web_sg.id
-} 
+  description = "ID do Security Group web."
+  value       = aws_security_group.web.id
+}

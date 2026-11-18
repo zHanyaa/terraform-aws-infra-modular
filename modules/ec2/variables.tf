@@ -1,24 +1,24 @@
-variable "ami" {
-  description = "AMI da instância EC2"
+variable "name_prefix" {
+  description = "Prefixo usado no nome dos recursos."
   type        = string
 }
 
 variable "instance_type" {
-  description = "Tipo da instância EC2"
+  description = "Tipo da instância EC2."
   type        = string
 }
 
 variable "subnet_id" {
-  description = "ID da subnet para a instância EC2"
-  type        = string
-}
-
-variable "key_name" {
-  description = "Nome da chave SSH para EC2"
+  description = "ID da subnet da instância."
   type        = string
 }
 
 variable "sg_id" {
-  description = "ID do Security Group para EC2"
+  description = "ID do Security Group da instância."
+  type        = string
+}
+
+variable "instance_profile_name" {
+  description = "Instance profile IAM associado à instância."
   type        = string
 }
