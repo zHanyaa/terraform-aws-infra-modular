@@ -1,0 +1,10 @@
+# Copie para terraform.tfvars e ajuste os valores.
+aws_region   = "us-east-1"
+project_name = "infra-modular"
+environment  = "dev"
+
+# Nome do bucket precisa ser único globalmente na AWS.
+bucket_name = "infra-modular-dev-seu-sufixo-unico"
+
+# CIDRs que podem acessar a porta 80. Ex.: o seu IP público -> "203.0.113.10/32"
+allowed_http_cidrs = ["203.0.113.10/32"]

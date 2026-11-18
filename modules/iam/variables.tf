@@ -1,4 +1,4 @@
-variable "user_name" {
-  description = "Nome do usuário IAM"
+variable "name_prefix" {
+  description = "Prefixo usado no nome dos recursos."
   type        = string
 }

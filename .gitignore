@@ -1,19 +1,38 @@
+# Diretórios locais do Terraform
 **/.terraform/*
+
+# State (nunca versionar: pode conter segredos)
 *.tfstate
 *.tfstate.*
-crash.log
-crash.*.log
+
+# Variáveis locais (use terraform.tfvars.example como modelo)
 *.tfvars
 *.tfvars.json
+!*.tfvars.example
+
+# Planos e logs
+*.tfplan
+crash.log
+crash.*.log
+
+# Overrides locais
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-*.tfplan
+
+# Configuração da CLI
 .terraformrc
 terraform.rc
-*.exe
-*.dll
-*.so
-*.dylib
-.terraform.lock.hcl 
+
+# Backend real (use backend.tf.example como modelo)
+backend.tf
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Observação: .terraform.lock.hcl É versionado de propósito
+# (garante as mesmas versões de provider em todas as máquinas e no CI).
