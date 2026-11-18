@@ -1,0 +1,10 @@
+# Checks ignorados de propósito, com o motivo. Projeto de estudo, 1 instância, custo mínimo.
+skip-check:
+  - CKV_AWS_88   # EC2 com IP público: necessário, a subnet é pública e não há NAT (NAT custa ~US$ 32/mês).
+  - CKV_AWS_130  # Subnet atribui IP público: mesmo motivo acima.
+  - CKV2_AWS_11  # VPC Flow Logs: fora do escopo de estudo (custo de CloudWatch Logs).
+  - CKV_AWS_144  # Replicação cross-region do S3: fora do escopo de estudo.
+  - CKV_AWS_145  # SSE-KMS com chave própria: SSE-S3 (AES256) é suficiente aqui e sem custo de KMS.
+  - CKV_AWS_18   # Access logging do S3: exigiria um segundo bucket só para logs.
+  - CKV2_AWS_62  # Notificações de eventos do S3: sem consumidor neste projeto.
+  - CKV_AWS_135  # EBS optimized: t3 já é EBS-optimized por padrão.
