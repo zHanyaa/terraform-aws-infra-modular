@@ -1,139 +1,120 @@
-- Projeto Terraform – Infraestrutura como Código
+# terraform-aws-infra-modular
 
-Este repositório contém um projeto de estudo utilizando **Terraform** para provisionamento de infraestrutura na AWS. O objetivo é demonstrar experiência prática com IaC (Infrastructure as Code) e servir como portfólio para meu perfil no LinkedIn.
+Projeto de estudo de **Infraestrutura como Código** com Terraform na AWS. Ele provisiona uma
+VPC pública com uma instância EC2 servindo uma página no Nginx e um bucket S3 endurecido, tudo
+dividido em módulos reutilizáveis.
 
-- Objetivo
+> Projeto para aprendizado e portfólio. Antes de usar em produção, revise custos, região e
+> requisitos de segurança do seu ambiente.
 
-- Aprender e praticar conceitos de infraestrutura como código
-- Demonstrar habilidades em automação de recursos na nuvem AWS
-- Servir como referência para oportunidades profissionais na área de Cloud/DevOps
+## Arquitetura
 
-- Recursos Provisionados
+```mermaid
+flowchart LR
+    user([Seu IP]) -- "HTTP :80" --> igw[Internet Gateway]
+    subgraph vpc["VPC 10.0.0.0/16"]
+        subgraph subnet["Subnet pública 10.0.1.0/24"]
+            ec2["EC2 t3.micro<br/>Amazon Linux 2023 + Nginx<br/>IMDSv2, EBS criptografado"]
+        end
+    end
+    igw --> ec2
+    ec2 -- "HTTPS :443" --> ssm[AWS Systems Manager]
+    admin([Você]) -- "aws ssm start-session" --> ssm
+    ec2 -. "role via instance profile" .-> iam[IAM Role<br/>AmazonSSMManagedInstanceCore]
+    s3[(S3<br/>versionado, privado,<br/>criptografado, só TLS)]
+```
 
-O projeto cria a seguinte infraestrutura na AWS:
-- VPC
-- Subnet
-- Security Group
-- Instância EC2
-- Bucket S3
-- Usuário IAM
+## Módulos
 
-Cada recurso está modularizado em pastas separadas dentro do diretório `modules/`.
+| Módulo | O que cria |
+|---|---|
+| `vpc` | VPC, subnet pública, Internet Gateway, route table e trava do security group default |
+| `security_group` | SG com HTTP só para os CIDRs informados. **Sem porta 22** |
+| `iam` | Role da instância + instance profile, com a policy mínima para o SSM |
+| `ec2` | Instância Amazon Linux 2023 (AMI resolvida via SSM Parameter), IMDSv2 obrigatório, disco gp3 criptografado, Nginx via `user_data` |
+| `s3` | Bucket com versioning, bloqueio de acesso público, criptografia, lifecycle de versões antigas e policy que recusa acesso sem TLS |
 
-- Estrutura do Projeto
-Projeto Terraform/
-├── main.tf
-├── providers.tf
-├── variables.tf
-├── outputs.tf
-├── modules/
-│   ├── vpc/
-│   ├── ec2/
-│   ├── s3/
-│   ├── iam/
-│   └── security_group/
+## Decisões de segurança
 
-- Como usar
+- **Acesso à instância via SSM Session Manager, não SSH.** Não há porta 22 aberta nem chave para vazar, e cada sessão fica registrada no CloudTrail.
+- **Role em vez de usuário IAM.** A instância recebe credenciais temporárias pelo instance profile, sem access key estática.
+- **IMDSv2 obrigatório.** Protege as credenciais da role contra ataques de SSRF.
+- **AMI dinâmica.** O ID vem do parâmetro público `/aws/service/ami-amazon-linux-latest/...`, então não quebra quando uma AMI antiga é removida.
+- **S3 privado por padrão.** Bloqueio de acesso público, `BucketOwnerEnforced`, criptografia e negação de tráfego sem TLS.
+- **Versões fixas.** Terraform `>= 1.5` e provider AWS `~> 6.0`, com `.terraform.lock.hcl` versionado.
 
-1. Pré-requisitos:
-   - Conta AWS
-   - [Terraform instalado](https://www.terraform.io/downloads.html)
+## Pré-requisitos
 
-2. Configuração:
-   - Configure suas credenciais AWS (via `aws configure` ou variáveis de ambiente)
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
+- AWS CLI configurado (`aws configure` ou SSO)
+- [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) para abrir terminal na instância
 
-3. Execução:
-   bash
-   terraform init
-   terraform plan
-   terraform apply
-   
+## Como usar
 
-4. Destruir recursos:
-   bash
-   terraform destroy
-   
+```bash
+git clone https://github.com/zHanyaa/terraform-aws-infra-modular.git
+cd terraform-aws-infra-modular
 
-- Observações
-- Este projeto é apenas para fins de estudo e demonstração.
-- Não utilize em ambientes de produção sem as devidas adaptações e validações de segurança.
+cp terraform.tfvars.example terraform.tfvars
+# edite bucket_name (único globalmente) e allowed_http_cidrs (ex.: "SEU_IP/32")
 
-- Contato
-- guuhpina@gmail.com
-- https://www.linkedin.com/in/gustavopina-devops/
+terraform init
+terraform plan
+terraform apply
+```
 
-|******************************************************************************************************|
-| - ALERTA!!                                                                                           |
-|  Projeto criado para fins de aprendizado e exposição de experiência prática em Terraform e AWS Cloud.| 
-|******************************************************************************************************|
+Depois do apply:
 
-__________________________________________________________________________________________________________________________________________
+```bash
+# página do Nginx (a partir de um IP liberado em allowed_http_cidrs)
+curl "http://$(terraform output -raw public_ip)"
 
-- Terraform Project – Infrastructure as Code
+# terminal na instância, sem SSH
+$(terraform output -raw ssm_session_command)
+```
 
-This repository contains a study project using **Terraform** to provision infrastructure on AWS. The goal is to demonstrate hands-on experience with IaC (Infrastructure as Code) and serve as a portfolio showcase on my LinkedIn profile.
+Para destruir tudo:
 
-- Objective
+```bash
+terraform destroy
+```
 
-- Learn and practice Infrastructure as Code concepts  
-- Demonstrate skills in automating resources on AWS Cloud  
-- Serve as a reference for professional opportunities in the Cloud/DevOps field  
+Se o bucket tiver objetos, defina `bucket_force_destroy = true` antes do destroy.
 
-- Provisioned Resources
+## Variáveis
 
-This project creates the following AWS infrastructure:
-- VPC  
-- Subnet  
-- Security Group  
-- EC2 Instance  
-- S3 Bucket  
-- IAM User  
+| Nome | Padrão | Descrição |
+|---|---|---|
+| `aws_region` | `us-east-1` | Região AWS |
+| `project_name` | `infra-modular` | Prefixo dos recursos |
+| `environment` | `dev` | Ambiente, usado no prefixo e nas tags |
+| `vpc_cidr` | `10.0.0.0/16` | CIDR da VPC |
+| `public_subnet_cidr` | `10.0.1.0/24` | CIDR da subnet pública |
+| `instance_type` | `t3.micro` | Tipo da instância |
+| `allowed_http_cidrs` | `[]` | CIDRs liberados na porta 80 |
+| `bucket_name` | — (obrigatória) | Nome do bucket S3 |
+| `bucket_force_destroy` | `false` | Permite destruir o bucket com objetos |
 
-Each resource is modularized into separate folders inside the `modules/` directory.
+## CI
 
-- Project Structure
-Terraform Project/
-├── main.tf
-├── providers.tf
-├── variables.tf
-├── outputs.tf
-├── modules/
-│   ├── vpc/
-│   ├── ec2/
-│   ├── s3/
-│   ├── iam/
-│   └── security_group/
+O workflow `.github/workflows/terraform.yml` roda a cada PR:
 
-- How to Use
+1. `terraform fmt -check`
+2. `terraform validate`
+3. `tflint` (regras recomendadas do Terraform + ruleset AWS)
+4. `checkov` (análise de segurança). Os checks ignorados de propósito estão em `.checkov.yaml`, cada um com o motivo.
 
-1. Prerequisites:
-   - AWS Account  
-   - Terraform installed: https://www.terraform.io/downloads.html
+## Custo estimado
 
-2. Configuration:
-   - Configure your AWS credentials (via `aws configure` or environment variables)
+Com `t3.micro`, o custo fica em torno de US$ 8/mês fora do free tier, mais o IPv4 público
+(~US$ 3,60/mês). Rode `terraform destroy` quando terminar de estudar.
 
-3. Execution:
-   terraform init
-   terraform plan
-   terraform apply
+## Próximos passos
 
-4. Destroy Resources:
-   terraform destroy
+- [ ] Backend remoto (S3 com lock nativo) para o state
+- [ ] Subnets privadas em duas AZs, com VPC endpoints para o SSM
+- [ ] Ambientes separados (dev/prod) com workspaces ou Terragrunt
 
-- Notes
+## Autor
 
-- This project is intended for study and demonstration purposes only.  
-- Do not use it in production environments without proper adjustments and security validations.
-
-- Contact
-
-- guuhpina@gmail.com  
-- https://www.linkedin.com/in/gustavopina-devops/
-
-******************************************************************************************************
-WARNING!!
-Project created for learning purposes and to showcase hands-on experience with Terraform and AWS Cloud.
-******************************************************************************************************
-
-
+**Gustavo Pina**: [LinkedIn](https://www.linkedin.com/in/gustavopina-devops/) · [GitHub](https://github.com/zHanyaa)
